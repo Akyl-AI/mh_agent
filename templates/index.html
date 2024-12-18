@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mental Health Assessment</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Mental Health Assessment</h1>
+        
+        <div id="start-chat-section">
+            <input type="text" id="user-id" placeholder="User ID (optional)">
+            <textarea id="initial-message" placeholder="Enter your initial message"></textarea>
+            <button id="start-chat-btn">Start Chat</button>
+        </div>
+
+        <div id="chat-section" style="display:none;">
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="message-input-area">
+                <textarea id="user-message" placeholder="Type your message..."></textarea>
+                <button id="send-message-btn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            let chatStatus = 'ended';
+
+            $('#start-chat-btn').click(function() {
+                const userId = $('#user-id').val();
+                const initialMessage = $('#initial-message').val();
+
+                $.ajax({
+                    url: '/start_chat',
+                    method: 'POST',
+                    data: {
+                        user_id: userId,
+                        message: initialMessage
+                    },
+                    success: function(response) {
+                        $('#start-chat-section').hide();
+                        $('#chat-section').show();
+                        startMessagePolling();
+                    },
+                    error: function(xhr) {
+                        alert('Failed to start chat: ' + xhr.responseText);
+                    }
+                });
+            });
+
+            $('#send-message-btn').click(function() {
+                const message = $('#user-message').val();
+                
+                $.ajax({
+                    url: '/send_message',
+                    method: 'POST',
+                    contentType: 'application/json',  // Add this line
+                    data: JSON.stringify({  // Change to use JSON.stringify
+                        message: message
+                    }),
+                    success: function(response) {
+                        $('#user-message').val('');
+                    },
+                    error: function(xhr) {
+                        alert('Failed to send message: ' + xhr.responseText);
+                    }
+                });
+            });
+
+            function startMessagePolling() {
+                function pollMessages() {
+                    $.ajax({
+                        url: '/get_messages',
+                        method: 'GET',
+                        success: function(data) {
+                            if (data.message) {
+                                $('#chat-messages').append(
+                                    `<div class="message ${data.message.user.toLowerCase()}">
+                                        <strong>${data.message.user}:</strong> 
+                                        ${data.message.message}
+                                    </div>`
+                                );
+                                $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
+                            }
+
+                            if (data.chat_status === 'ended') {
+                                chatStatus = 'ended';
+                            } else {
+                                setTimeout(pollMessages, 1000);
+                            }
+                        },
+                        error: function(xhr) {
+                            console.error('Error polling messages');
+                        }
+                    });
+                }
+                pollMessages();
+            }
+        });
+    </script>
+</body>
+</html>
